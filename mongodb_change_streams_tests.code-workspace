@@ -1,0 +1,30 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"python.linting.pylintEnabled": false,
+		"python.autoComplete.extraPaths" : ["../test-base/testing/src",
+			"./testcases/src",
+		    "../../pyfixmsg"],
+			"files.exclude" : 
+		{ 
+			"**/*.pyc" : true 
+		},
+		"cSpell.words": [
+			"EOBI",
+			"eurex",
+			"eypi",
+			"pyfixmsg",
+			"xaxis",
+			"zorder"
+		],
+		"python.analysis.extraPaths": [
+			"../test-base/testing/src",
+			"./testcases/src",
+			"../../pyfixmsg"
+		]
+	}
+}
