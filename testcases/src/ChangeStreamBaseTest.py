@@ -34,11 +34,20 @@ class ChangeStreamBaseTest(BaseTest):
 		running = not stopping.is_set()
 		while running:
 			try:
-				pipeline = [{'$match': {'operationType': 'insert'}}]
+				pipeline = [{'$match': {'operationType': { '$in' : ['insert', 'invalidate']}}}]
 				coll = db[coll_name]
+				log.info(f'Creating change stream for {coll_name}')
 				with coll.watch(pipeline, resume_after=resume_token) as stream:
-					for insert_change in stream:
-						on_change_received(log, insert_change)
+					for change in stream:
+						opType = change['operationType']
+						if opType == 'invalidate':
+							log.info('Change stream is invalid, restarting')
+							resume_token = None
+							break
+						elif opType == 'insert':
+							on_change_received(log, change)
+						else:
+							log.error(f'Unknown opType - {opType}')
 						resume_token = stream.resume_token
 						if stopping.is_set():
 							running = False
