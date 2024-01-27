@@ -20,6 +20,7 @@ class PySysTest(ChangeStreamBaseTest):
 	def stop_cs_thread(self):
 		if self.db is not None:
 			self.db.client.close()
+			self.db = None
 
 		if self.thread is not None:
 			self.thread.stop()
