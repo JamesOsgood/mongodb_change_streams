@@ -7,7 +7,15 @@ class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
 		ChangeStreamBaseTest.__init__(self, descriptor, outsubdir, runner)
 		self.cs_coll_name = 'cs_input'
+		self.thread = None
+		self.addCleanupFunction(self.stop_cs_thread)
 
+	# Cleanup
+	def stop_cs_thread(self):
+		if self.thread is not None:
+			self.thread.stop()
+			self.thread.join()
+			self.thread = None
 
 	# Test entry point
 	def execute(self):
@@ -16,10 +24,10 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = db[self.cs_coll_name]
 		cs_coll.drop()
 
-		thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
+		self.thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
 
-		DOCS_TO_INSERT = 10000
-		BATCH_SIZE = 100
+		DOCS_TO_INSERT = 100000
+		BATCH_SIZE = 3000
 		docs_inserted = 0
 		current_batch = []
 		for doc in collection.find({}).sort({'_id' : 1}):
@@ -39,8 +47,7 @@ class PySysTest(ChangeStreamBaseTest):
 
 		self.inserted_count = docs_inserted
 		db.client.close()
-		thread.stop()
-		thread.join()
+		self.stop_cs_thread()
 
 	def validate(self):
 		db = self.get_db_connection()
