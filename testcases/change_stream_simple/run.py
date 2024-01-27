@@ -14,9 +14,13 @@ class PySysTest(ChangeStreamBaseTest):
 		self.batch_start = None
 		self.batch_received_count = 0
 		self.ts_first_received = None
+		self.db = None
 
 	# Cleanup
 	def stop_cs_thread(self):
+		if self.db is not None:
+			self.db.client.close()
+
 		if self.thread is not None:
 			self.thread.stop()
 			self.thread.join()
@@ -24,9 +28,9 @@ class PySysTest(ChangeStreamBaseTest):
 
 	# Test entry point
 	def execute(self):
-		db = self.get_db_connection(dbname=self.db_name)
-		collection = db[self.input_data_coll_name]
-		cs_coll = db[self.cs_coll_name]
+		self.db = self.get_db_connection(dbname=self.db_name)
+		collection = self.db[self.input_data_coll_name]
+		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
 		self.thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
@@ -56,7 +60,6 @@ class PySysTest(ChangeStreamBaseTest):
 				self.wait(1.0)
 
 		self.inserted_count = docs_inserted
-		db.client.close()
 		self.stop_cs_thread()
 
 	def validate(self):
@@ -74,6 +77,6 @@ class PySysTest(ChangeStreamBaseTest):
 		elif doc['type'] == 'batch_end':
 			ts_last_received = time.perf_counter()
 			ts_inserted = self.batch_start['ts']
-			self.log.info(f"Batch of {self.batch_received_count} - Deltas - first {self.ts_first_received - ts_inserted:4f}, last first {ts_last_received - ts_inserted:4f}")
+			self.log.info(f"Batch of {self.batch_received_count} - Deltas - first {self.ts_first_received - ts_inserted:4f}, last {ts_last_received - ts_inserted:4f}, batch time {ts_last_received - self.ts_first_received:4f}")
 			self.batch_received_count = 0
 
