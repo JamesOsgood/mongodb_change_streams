@@ -26,8 +26,8 @@ class PySysTest(ChangeStreamBaseTest):
 
 		self.thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
 
-		DOCS_TO_INSERT = 100000
-		BATCH_SIZE = 3000
+		DOCS_TO_INSERT = 1000000
+		BATCH_SIZE = 10000
 		docs_inserted = 0
 		current_batch = []
 		for doc in collection.find({}).sort({'_id' : 1}):
