@@ -7,25 +7,6 @@ class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
 		ChangeStreamBaseTest.__init__(self, descriptor, outsubdir, runner)
 		self.cs_coll_name = 'cs_input'
-		self.thread = None
-		self.addCleanupFunction(self.stop_cs_thread)
-
-		# Used from CS Thread
-		self.batch_start = None
-		self.batch_received_count = 0
-		self.ts_first_received = None
-		self.db = None
-
-	# Cleanup
-	def stop_cs_thread(self):
-		if self.db is not None:
-			self.db.client.close()
-			self.db = None
-
-		if self.thread is not None:
-			self.thread.stop()
-			self.thread.join()
-			self.thread = None
 
 	# Test entry point
 	def execute(self):
@@ -34,10 +15,8 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
-		# self.thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
-
 		DOCS_TO_INSERT = 1000000
-		BATCH_SIZE = 10000
+		BATCH_SIZE = 50000
 		docs_inserted = 0
 		current_batch = []
 		for doc in collection.find({}).sort({'_id' : 1}):
@@ -61,23 +40,9 @@ class PySysTest(ChangeStreamBaseTest):
 				self.wait(1.0)
 
 		self.inserted_count = docs_inserted
-		self.stop_cs_thread()
 
 	def validate(self):
 		db = self.get_db_connection()
 		coll = db[self.cs_coll_name]
 		self.cnt = coll.count_documents({})
 		self.assertThat('self.cnt == self.inserted_count')
-
-	def on_change_received(self, log, change_event):
-		doc = change_event['fullDocument']
-		self.batch_received_count += 1
-		if doc['type'] == 'batch_start':
-			self.batch_start = doc
-			self.ts_first_received = time.perf_counter()
-		elif doc['type'] == 'batch_end':
-			ts_last_received = time.perf_counter()
-			ts_inserted = self.batch_start['ts']
-			self.log.info(f"Batch of {self.batch_received_count} - Deltas - first {self.ts_first_received - ts_inserted:4f}, last {ts_last_received - ts_inserted:4f}, batch time {ts_last_received - self.ts_first_received:4f}")
-			self.batch_received_count = 0
-
