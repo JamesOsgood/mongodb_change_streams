@@ -10,6 +10,11 @@ class PySysTest(ChangeStreamBaseTest):
 		self.thread = None
 		self.addCleanupFunction(self.stop_cs_thread)
 
+		# Used from CS Thread
+		self.batch_start = None
+		self.batch_received_count = 0
+		self.ts_first_received = None
+
 	# Cleanup
 	def stop_cs_thread(self):
 		if self.thread is not None:
@@ -36,9 +41,14 @@ class PySysTest(ChangeStreamBaseTest):
 			
 			current_batch.append(doc)
 			if len(current_batch) == BATCH_SIZE:
-				ts = time.perf_counter()
-				for cd in current_batch:
-					cd['ts_inserted'] = ts
+				last_index = len(current_batch) -1
+				test_id = datetime.now().isoformat()
+				current_batch[0]['type'] = 'batch_start'
+				current_batch[0]['ts'] = time.perf_counter()
+
+				current_batch[last_index]['test_id'] = test_id
+				current_batch[last_index]['type'] = 'batch_end'
+
 				cs_coll.insert_many(current_batch)
 				docs_inserted += len(current_batch)
 				self.log.info(f'Inserted {docs_inserted}')
@@ -57,7 +67,13 @@ class PySysTest(ChangeStreamBaseTest):
 
 	def on_change_received(self, log, change_event):
 		doc = change_event['fullDocument']
-		ts_inserted = doc['ts_inserted']
-		ts_received = time.perf_counter()
-		self.log.info(f'Doc received, delta is {ts_received - ts_inserted:4f}')
+		self.batch_received_count += 1
+		if doc['type'] == 'batch_start':
+			self.batch_start = doc
+			self.ts_first_received = time.perf_counter()
+		elif doc['type'] == 'batch_end':
+			ts_last_received = time.perf_counter()
+			ts_inserted = self.batch_start['ts']
+			self.log.info(f"Batch of {self.batch_received_count} - Deltas - first {self.ts_first_received - ts_inserted:4f}, last first {ts_last_received - ts_inserted:4f}")
+			self.batch_received_count = 0
 

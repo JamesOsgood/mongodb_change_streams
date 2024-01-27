@@ -14,14 +14,14 @@ class PySysTest(ChangeStreamBaseTest):
 	def execute(self):
 		db = self.get_db_connection(dbname=self.db_name)
 
-		DOCUMENTS_TO_CREATE = 1000000
+		DOCUMENTS_TO_CREATE = 10000
 		self.generate_documents(db, DOCUMENTS_TO_CREATE)
 
 	def generate_documents(self, db, docs_to_generate):
 		collection = db[self.input_data_coll_name]
 		collection.drop()
 
-		BUCKET_COUNT = 1000
+		BUCKET_COUNT = 1000000
 		inserted_count = 0
 		doc_index = 0
 		current_bucket = []
@@ -50,7 +50,7 @@ class PySysTest(ChangeStreamBaseTest):
 	def create_doc(self, inserted_count):
 		doc = {}
 		doc['_id'] = inserted_count
-		doc['ts'] = datetime.now()
+		doc['type'] = 'doc'
 		return doc
 
 	def validate(self):
