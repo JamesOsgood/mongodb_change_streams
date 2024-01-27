@@ -34,33 +34,34 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
-		# self.thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
+		self.thread = self.create_change_stream_thread(cs_coll, self.on_change_received)
 
-		DOCS_TO_INSERT = 1000000
-		BATCH_SIZE = 10000
-		docs_inserted = 0
-		current_batch = []
-		for doc in collection.find({}).sort({'_id' : 1}):
-			if docs_inserted > DOCS_TO_INSERT:
-				break
+		# DOCS_TO_INSERT = 1000000
+		# BATCH_SIZE = 10000
+		# docs_inserted = 0
+		# current_batch = []
+		# for doc in collection.find({}).sort({'_id' : 1}):
+		# 	if docs_inserted > DOCS_TO_INSERT:
+		# 		break
 			
-			current_batch.append(doc)
-			if len(current_batch) == BATCH_SIZE:
-				last_index = len(current_batch) -1
-				test_id = datetime.now().isoformat()
-				current_batch[0]['type'] = 'batch_start'
-				current_batch[0]['ts'] = time.perf_counter()
+		# 	current_batch.append(doc)
+		# 	if len(current_batch) == BATCH_SIZE:
+		# 		last_index = len(current_batch) -1
+		# 		test_id = datetime.now().isoformat()
+		# 		current_batch[0]['type'] = 'batch_start'
+		# 		current_batch[0]['ts'] = time.perf_counter()
 
-				current_batch[last_index]['test_id'] = test_id
-				current_batch[last_index]['type'] = 'batch_end'
+		# 		current_batch[last_index]['test_id'] = test_id
+		# 		current_batch[last_index]['type'] = 'batch_end'
 
-				cs_coll.insert_many(current_batch)
-				docs_inserted += len(current_batch)
-				self.log.info(f'Inserted {docs_inserted}')
-				current_batch = []
-				self.wait(1.0)
+		# 		cs_coll.insert_many(current_batch)
+		# 		docs_inserted += len(current_batch)
+		# 		self.log.info(f'Inserted {docs_inserted}')
+		# 		current_batch = []
+		# 		self.wait(1.0)
 
-		self.inserted_count = docs_inserted
+		self.wait(5 * 60.0)
+# 		self.inserted_count = docs_inserted
 		self.stop_cs_thread()
 
 	def validate(self):
