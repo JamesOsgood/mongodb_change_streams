@@ -22,18 +22,20 @@ class ChangeStreamBaseTest(BaseTest):
 
 		return db_connection
 
-	def create_change_stream_thread(self, coll, on_change_received):
+	def create_change_stream_thread(self, db, coll_name, on_change_received):
 		args = {}
-		args['coll'] = coll
+		args['db'] = db
+		args['coll_name'] = coll_name
 		args['on_change_received'] = on_change_received
 		return self.startBackgroundThread('Change Stream consumer', self.change_stream_listener, kwargsForTarget=args)
 
-	def change_stream_listener(self, stopping, log, coll, on_change_received):
+	def change_stream_listener(self, stopping, log, db, coll_name, on_change_received):
 		resume_token = None
 		running = not stopping.is_set()
 		while running:
 			try:
 				pipeline = [{'$match': {'operationType': 'insert'}}]
+				coll = db[coll_name]
 				with coll.watch(pipeline, resume_after=resume_token) as stream:
 					for insert_change in stream:
 						on_change_received(log, insert_change)
