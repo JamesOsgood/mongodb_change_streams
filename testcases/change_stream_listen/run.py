@@ -15,6 +15,8 @@ class PySysTest(ChangeStreamBaseTest):
 		self.batch_received_count = 0
 		self.ts_first_received = None
 		self.db = None
+		self.test_marker = None
+		self.test_results = []
 
 	# Cleanup
 	def stop_cs_thread(self):
@@ -50,13 +52,37 @@ class PySysTest(ChangeStreamBaseTest):
 
 	def on_change_received(self, log, change_event):
 		doc = change_event['fullDocument']
-		self.batch_received_count += 1
-		if doc['type'] == 'batch_start':
+		if doc['type'] == 'test_marker':
+			if doc['is_test_start']:
+				self.test_marker = doc
+				self.log.info(f"Starting test {doc['test_info']['test_id']}")			
+			else:
+				self.log.info(f"Finished test {doc['test_info']['test_id']}")	
+				self.insert_test_run(self.test_marker['test_info'], self.test_results)
+				self.test_marker = None
+				self.test_results = []		
+		elif doc['type'] == 'batch_start':
+			self.batch_received_count += 1
 			self.batch_start = doc
 			self.ts_first_received = time.perf_counter()
 		elif doc['type'] == 'batch_end':
+			self.batch_received_count += 1
 			ts_last_received = time.perf_counter()
 			ts_inserted = self.batch_start['ts']
-			log.info(f"Batch of {self.batch_received_count} - Deltas - first {self.ts_first_received - ts_inserted:4f}, last {ts_last_received - ts_inserted:4f}, batch time {ts_last_received - self.ts_first_received:4f}")
+			
+			# Metrics
+			first_delta = self.ts_first_received - ts_inserted
+			last_delta = ts_last_received - ts_inserted
+			batch_time = ts_last_received - self.ts_first_received
+			results = {}
+			results['ts_first_received'] = self.ts_first_received
+			results['batch_received_count'] = self.batch_received_count
+			results['first_delta'] = first_delta
+			results['last_delta'] = last_delta
+			results['batch_time'] = batch_time
+			log.info(f"Batch of {self.batch_received_count} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
+			self.test_results.append(results)
 			self.batch_received_count = 0
+		else:
+			self.batch_received_count += 1
 

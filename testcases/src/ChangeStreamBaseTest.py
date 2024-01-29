@@ -1,7 +1,7 @@
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 from pysys.basetest import BaseTest
-
+from datetime import datetime
 class ChangeStreamBaseTest(BaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
 		BaseTest.__init__(self, descriptor, outsubdir, runner)
@@ -21,6 +21,51 @@ class ChangeStreamBaseTest(BaseTest):
 			db_connection = client.get_database()
 
 		return db_connection
+
+	def create_test_info(self):
+		db = self.get_db_connection()
+		# Mongo Info
+		status = db.command('serverStatus')
+		mongo = {}
+		mongo['version'] = status['version']
+
+		sharded = False
+		if status['process'] == 'mongos':
+			sharded = True
+		mongo['sharded'] = sharded
+
+		# Server info
+		host_info = db.command('hostInfo')
+		system = host_info['system']
+		host = {}
+		host['name'] = system['hostname']
+		host['cores'] = system['numCores']
+		host['memSizeMB'] = system['memSizeMB']
+		host['memSizeGB'] = host['memSizeMB'] / 1000
+		
+		test_info = {}
+		test_info['test_id'] = datetime.now().isoformat()
+		test_info['mongo'] = mongo
+		test_info['host'] = host
+		return test_info
+
+	def create_test_run_marker(self, test_info, is_start):
+		doc = {}
+		doc['type'] = 'test_marker'
+		doc['test_info'] = test_info
+		doc['is_test_start'] = is_start
+		return doc
+	
+	def clear_test_runs(self):
+		db = self.get_db_connection(dbname='tests')
+		db.test_runs.drop()
+
+	def insert_test_run(self, test_info, test_results):
+		doc = {}
+		doc['test_info'] = test_info
+		doc['results'] = test_results
+		db = self.get_db_connection(dbname='tests')
+		db.test_runs.insert_one(doc)
 
 	def create_change_stream_thread(self, db, coll_name, on_change_received):
 		args = {}
