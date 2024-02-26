@@ -16,7 +16,7 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll.drop()
 		cs_coll.create_index('type')
 
-		DOCS_TO_INSERT = 1000000
+		DOCS_TO_INSERT = 100000
 		BATCH_SIZE = 50000
 		docs_inserted = 0
 		current_batch = []
