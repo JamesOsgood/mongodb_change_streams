@@ -12,8 +12,7 @@ class PySysTest(ChangeStreamBaseTest):
 	def execute(self):
 		self.db = self.get_db_connection(dbname=self.db_name)
 		collection = self.db[self.input_data_coll_name]
-		cs_coll = self.db[self.cs_coll_name]
-		cs_coll = self.db.create_collection(self.cs_coll_name, changeStreamPreAndPostImages={'enabled':True})
+		# cs_coll = self.db.create_collection(self.cs_coll_name, changeStreamPreAndPostImages={'enabled':True})
 
 		cs_coll.create_index('type')
 

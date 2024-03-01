@@ -39,7 +39,7 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
-		self.thread = self.create_change_stream_thread(self.db, self.cs_coll_name, self.on_change_received, full_document='updateLookup')
+		self.thread = self.create_change_stream_thread(self.db, self.cs_coll_name, self.on_change_received, full_document='required')
 
 		# Just wait
 		done = False
