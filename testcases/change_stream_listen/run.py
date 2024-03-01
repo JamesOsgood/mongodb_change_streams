@@ -39,7 +39,19 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
-		self.thread = self.create_change_stream_thread(self.db, self.cs_coll_name, self.on_change_received, full_document='updateLookup')
+		full_document = 'updateLookup'
+		full_document_before_change = None
+		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
+		if USE_PREIMAGES:
+			self.log.info('Using preimages')
+			full_document = 'required'
+			full_document_before_change = 'required'
+
+		self.thread = self.create_change_stream_thread(self.db, 
+												 self.cs_coll_name, 
+												 self.on_change_received, 
+												 full_document=full_document,
+												 full_document_before_change=full_document_before_change)
 
 		# Just wait
 		done = False

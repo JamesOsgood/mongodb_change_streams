@@ -12,9 +12,15 @@ class PySysTest(ChangeStreamBaseTest):
 	def execute(self):
 		self.db = self.get_db_connection(dbname=self.db_name)
 		collection = self.db[self.input_data_coll_name]
-		# cs_coll = self.db.create_collection(self.cs_coll_name, changeStreamPreAndPostImages={'enabled':True})
-		cs_coll = self.db.create_collection(self.cs_coll_name)
-		cs_coll.create_index('type')
+		
+		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
+		cs_coll = None
+		if USE_PREIMAGES:
+			self.log.info('Using preimages')
+			cs_coll = self.db.create_collection(self.cs_coll_name, changeStreamPreAndPostImages = { 'enabled' : True } )
+		else:
+			cs_coll = self.db.create_collection(self.cs_coll_name)
+			cs_coll.create_index('type')
 
 		DOCS_TO_INSERT = 1000000
 		BATCH_SIZE = 500
