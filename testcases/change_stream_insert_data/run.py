@@ -16,10 +16,11 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll.drop()
 		cs_coll.create_index('type')
 
-		DOCS_TO_INSERT = 200
-		BATCH_SIZE = 10
-		PRE_UPDATE_INSERT_COUNT = 100
+		DOCS_TO_INSERT = 1000000
+		BATCH_SIZE = 500
+		PRE_UPDATE_INSERT_COUNT = 1000
 		PERCENT_UPDATES = 30
+		WAIT_TIME = 2.0
 		doc_inserted = 0
 		docs_processed = 0
 		current_input_id = 0
@@ -65,7 +66,7 @@ class PySysTest(ChangeStreamBaseTest):
 				# self.log.info(f'Inserting {current_input_id} - {doc}')
 				batch_count['insert'] += 1
 			else:
-				id_to_update = self.sample_doc({ 'type' : { '$ne' :  'test_marker' } }, cs_coll)
+				id_to_update = random.randint(0, current_input_id)
 				filter = { '_id' : id_to_update}
 				updates = { 'updated' : True}
 				if len(batch_details) > 0:
@@ -97,27 +98,10 @@ class PySysTest(ChangeStreamBaseTest):
 					batch_count[type] = 0
 				self.log.info(f'Writing batch: {", ".join(batch_desc)}')
 
-				self.wait(1.0)
+				self.wait(WAIT_TIME)
 
 		test_marker = self.create_test_run_marker(test_info, False)
 		cs_coll.insert_one(test_marker)
-
-	def sample_doc(self, filter, coll):
-		pipeline = [
-			{
-				'$match' : filter
-			},{
-				'$sample': {
-					'size': 1
-				}
-			}, {
-				'$project': {
-					'_id': 1
-				}
-			}
-		]
-		res = list(coll.aggregate(pipeline))
-		return res[0]['_id']
 
 	def get_doc_count(self, coll):
 		pipeline = [
