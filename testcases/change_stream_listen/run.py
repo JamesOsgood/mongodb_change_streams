@@ -2,6 +2,7 @@ from ChangeStreamBaseTest import ChangeStreamBaseTest
 import time
 from datetime import datetime, timedelta
 from bson.decimal128 import Decimal128
+import copy
 
 class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
@@ -12,7 +13,9 @@ class PySysTest(ChangeStreamBaseTest):
 
 		# Used from CS Thread
 		self.batch_start = None
-		self.batch_received_count = 0
+		self.batch_received_count = {}
+		for type in ['insert', 'update']:
+			self.batch_received_count[type] = 0
 		self.ts_first_received = None
 		self.db = None
 		self.test_marker = None
@@ -36,7 +39,7 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
-		self.thread = self.create_change_stream_thread(self.db, self.cs_coll_name, self.on_change_received)
+		self.thread = self.create_change_stream_thread(self.db, self.cs_coll_name, self.on_change_received, full_document='updateLookup')
 
 		# Just wait
 		done = False
@@ -52,6 +55,8 @@ class PySysTest(ChangeStreamBaseTest):
 
 	def on_change_received(self, log, change_event):
 		doc = change_event['fullDocument']
+		op_type = change_event['operationType']
+		# self.log.info(change_event)
 		if doc['type'] == 'test_marker':
 			if doc['is_test_start']:
 				self.test_marker = doc
@@ -62,11 +67,11 @@ class PySysTest(ChangeStreamBaseTest):
 				self.test_marker = None
 				self.test_results = []		
 		elif doc['type'] == 'batch_start':
-			self.batch_received_count += 1
-			self.batch_start = doc
+			self.batch_received_count[op_type] += 1
+			self.batch_start = doc['batch']
 			self.ts_first_received = time.perf_counter()
 		elif doc['type'] == 'batch_end':
-			self.batch_received_count += 1
+			self.batch_received_count[op_type] += 1
 			ts_last_received = time.perf_counter()
 			ts_inserted = self.batch_start['ts']
 			
@@ -76,13 +81,22 @@ class PySysTest(ChangeStreamBaseTest):
 			batch_time = ts_last_received - self.ts_first_received
 			results = {}
 			results['ts_first_received'] = self.ts_first_received
-			results['batch_received_count'] = self.batch_received_count
+			results['batch_received_count'] = copy.deepcopy(self.batch_received_count)
 			results['first_delta'] = first_delta
 			results['last_delta'] = last_delta
 			results['batch_time'] = batch_time
-			log.info(f"Batch of {self.batch_received_count} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
+			
+			batch_total = 0
+			batch_desc = []
+			for type in self.batch_received_count.keys():						
+				batch_total += self.batch_received_count[type]
+				batch_desc.append(f'{self.batch_received_count[type]} {type}')
+				self.batch_received_count[type] = 0
+			log.info(f"Batch of {batch_total} {', '.join(batch_desc)} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
 			self.test_results.append(results)
-			self.batch_received_count = 0
 		else:
-			self.batch_received_count += 1
+			if op_type in self.batch_received_count.keys():
+				self.batch_received_count[op_type] += 1
+
+		# self.log.info(f'{change_event["operationType"]} - {self.batch_received_count}')
 

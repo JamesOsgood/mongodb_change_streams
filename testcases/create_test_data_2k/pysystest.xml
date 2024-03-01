@@ -2,7 +2,7 @@
 <pysystest type="auto" state="runnable">
     
   <description> 
-    <title>Simple Change Stream - Test updates</title>    
+    <title>Create a test dataset we can read</title>    
     <purpose><![CDATA[
 ]]>
     </purpose>

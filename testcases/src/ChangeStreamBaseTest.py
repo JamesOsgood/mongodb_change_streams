@@ -64,7 +64,7 @@ class ChangeStreamBaseTest(BaseTest):
 		doc = {}
 		doc['test_info'] = test_info
 		doc['results'] = test_results
-		db = self.get_db_connection(dbname='tests')
+		db = self.get_db_connection(dbname=self.db_name)
 		db.test_runs.insert_one(doc)
 
 	def create_change_stream_thread(self, db, coll_name, on_change_received, full_document = None):
