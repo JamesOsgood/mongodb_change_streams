@@ -20,7 +20,7 @@ class PySysTest(ChangeStreamBaseTest):
 		BATCH_SIZE = 500
 		PRE_UPDATE_INSERT_COUNT = 1000
 		PERCENT_UPDATES = 30
-		WAIT_TIME = 2.0
+		WAIT_TIME = 1.0
 		doc_inserted = 0
 		docs_processed = 0
 		current_input_id = 0

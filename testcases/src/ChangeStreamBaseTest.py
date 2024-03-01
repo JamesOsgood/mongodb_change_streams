@@ -67,12 +67,12 @@ class ChangeStreamBaseTest(BaseTest):
 		db = self.get_db_connection(dbname=self.db_name)
 		db.test_runs.insert_one(doc)
 
-	def create_change_stream_thread(self, db, coll_name, on_change_received, full_document = None, fullDocumentBeforeChange=None):
+	def create_change_stream_thread(self, db, coll_name, on_change_received, full_document = None, full_document_before_change=None):
 		args = {}
 		args['db'] = db
 		args['coll_name'] = coll_name
 		args['full_document'] = full_document
-		args['fullDocumentBeforeChange'] = full_document
+		args['fullDocumentBeforeChange'] = full_document_before_change
 		args['on_change_received'] = on_change_received
 		return self.startBackgroundThread('Change Stream consumer', self.change_stream_listener, kwargsForTarget=args)
 
