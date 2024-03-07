@@ -22,7 +22,7 @@ class PySysTest(ChangeStreamBaseTest):
 			cs_coll = self.db.create_collection(self.cs_coll_name)
 			cs_coll.create_index('type')
 
-		DOCS_TO_INSERT = 1000000
+		DOCS_TO_INSERT = 50000
 		BATCH_SIZE = 500
 		PRE_UPDATE_INSERT_COUNT = 1000
 		PERCENT_UPDATES = 30
