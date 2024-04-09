@@ -14,7 +14,8 @@ class PySysTest(ChangeStreamBaseTest):
 		collection = self.db[self.input_data_coll_name]
 		
 		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
-		cs_coll = None
+		cs_coll = self.db.get_collection(self.cs_coll_name)
+		cs_coll.drop()
 		if USE_PREIMAGES:
 			self.log.info('Using preimages')
 			cs_coll = self.db.create_collection(self.cs_coll_name, changeStreamPreAndPostImages = { 'enabled' : True } )
@@ -23,9 +24,9 @@ class PySysTest(ChangeStreamBaseTest):
 			cs_coll.create_index('type')
 
 		DOCS_TO_INSERT = 100000
-		BATCH_SIZE = 500
+		BATCH_SIZE = int(self.project.INSERT_BATCH_SIZE)
 		PRE_UPDATE_INSERT_COUNT = 1000
-		PERCENT_UPDATES = 30
+		PERCENT_UPDATES = int(self.project.PERCENT_UPDATES)
 		WAIT_TIME = 1.0
 		doc_inserted = 0
 		docs_processed = 0
