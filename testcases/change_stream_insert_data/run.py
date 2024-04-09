@@ -25,7 +25,7 @@ class PySysTest(ChangeStreamBaseTest):
 
 		DOCS_TO_INSERT = 100000
 		BATCH_SIZE = int(self.project.INSERT_BATCH_SIZE)
-		PRE_UPDATE_INSERT_COUNT = 1000
+		PRE_UPDATE_INSERT_COUNT = int(self.project.PRE_UPDATE_INSERT_COUNT)
 		PERCENT_UPDATES = int(self.project.PERCENT_UPDATES)
 		WAIT_TIME = 1.0
 		doc_inserted = 0
