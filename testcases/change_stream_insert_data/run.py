@@ -92,11 +92,11 @@ class PySysTest(ChangeStreamBaseTest):
 				if len(batch_details) > 0:
 					updates['type'] = batch_details['type']
 					updates['batch'] = batch_details
-					# self.log.info(f'Updating {id_to_update} = {updates}')
+					self.log.info(f'Updating {id_to_update} = {updates}')
 					current_batch.append(UpdateOne(filter, { '$set' : updates, '$inc' : { 'version' : 1}}))
 				else:
 					updates['type'] = 'doc'
-					self.log.info(f'Updating {id_to_update} = {updates}')
+					self.log.info(f'Updating {id_to_update} = {updates}, unsetting batch')
 					current_batch.append(UpdateOne(filter, 
 									{ '$set' : updates, 
 									  '$inc' : { 'version' : 1}, 

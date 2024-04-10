@@ -2,7 +2,7 @@
 <pysystest type="auto" state="runnable">
     
   <description> 
-    <title>Create a test dataset we can read</title>    
+    <title>Create a test dataset we can read - 2k doc size</title>    
     <purpose><![CDATA[
 ]]>
     </purpose>

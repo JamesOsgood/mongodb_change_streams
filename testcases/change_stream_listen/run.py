@@ -104,7 +104,7 @@ class PySysTest(ChangeStreamBaseTest):
 				batch_total += self.batch_received_count[type]
 				batch_desc.append(f'{self.batch_received_count[type]} {type}')
 				self.batch_received_count[type] = 0
-			if batch_total != 1000:
+			if batch_total != 100:
 				self.log.warn(doc)
 			log.info(f"Batch of {batch_total} {', '.join(batch_desc)} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
 			self.test_results.append(results)
