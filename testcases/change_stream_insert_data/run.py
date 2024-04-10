@@ -1,7 +1,8 @@
 from ChangeStreamBaseTest import ChangeStreamBaseTest
 import time
-from datetime import datetime
 import random
+import copy
+
 from pymongo import InsertOne, UpdateOne
 class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
@@ -95,8 +96,11 @@ class PySysTest(ChangeStreamBaseTest):
 					current_batch.append(UpdateOne(filter, { '$set' : updates, '$inc' : { 'version' : 1}}))
 				else:
 					updates['type'] = 'doc'
-					# self.log.info(f'Updating {id_to_update} = {updates}')
-					current_batch.append(UpdateOne(filter, { '$set' : updates, '$inc' : { 'version' : 1}, '$unset' : { 'batch' : ''  }}))
+					self.log.info(f'Updating {id_to_update} = {updates}')
+					current_batch.append(UpdateOne(filter, 
+									{ '$set' : updates, 
+									  '$inc' : { 'version' : 1}, 
+									  '$unset' : { 'batch' : ''  }}))
 				batch_count['update'] += 1
 			
 			if len(current_batch) == BATCH_SIZE:
