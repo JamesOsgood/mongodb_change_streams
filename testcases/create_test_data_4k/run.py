@@ -2,6 +2,7 @@ from ChangeStreamBaseTest import ChangeStreamBaseTest
 from datetime import datetime, timedelta
 from bson.decimal128 import Decimal128
 from faker import Faker
+import random
 
 class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
@@ -15,18 +16,21 @@ class PySysTest(ChangeStreamBaseTest):
 		db = self.get_db_connection(dbname=self.db_name)
 
 		DOCUMENTS_TO_CREATE = 1000000
-		self.generate_documents(db, DOCUMENTS_TO_CREATE)
+		ACCOUNTS = int(DOCUMENTS_TO_CREATE / 10000)
+		self.generate_documents(db, DOCUMENTS_TO_CREATE, ACCOUNTS)
 
-	def generate_documents(self, db, docs_to_generate):
+	def generate_documents(self, db, docs_to_generate, no_accounts):
 		collection = db[self.input_data_coll_name]
 		collection.drop()
+		collection.create_index('account')
 
 		BUCKET_COUNT = 1000
 		inserted_count = 0
 		doc_index = 0
 		current_bucket = []
 		while inserted_count < docs_to_generate:
-			doc = self.create_doc(doc_index)
+			account = random.randint(1, no_accounts)
+			doc = self.create_doc(doc_index, account)
 			current_bucket, inserted_count = self.store_doc(collection, doc, current_bucket, inserted_count, BUCKET_COUNT)
 			doc_index += 1
 
@@ -47,10 +51,11 @@ class PySysTest(ChangeStreamBaseTest):
 			return (current_bucket, inserted_count)
 
 
-	def create_doc(self, inserted_count):
+	def create_doc(self, inserted_count, account):
 		doc = {}
 		doc['_id'] = inserted_count
 		doc['type'] = 'doc'
+		doc['account'] = account
 		FLOAT_FIELD_COUNT = 130
 		for index in range(FLOAT_FIELD_COUNT):
 			doc[f'int_field_{index}'] = float(index)

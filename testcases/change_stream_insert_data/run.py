@@ -8,20 +8,32 @@ class PySysTest(ChangeStreamBaseTest):
 		ChangeStreamBaseTest.__init__(self, descriptor, outsubdir, runner)
 		self.cs_coll_name = 'cs_input'
 
+	def create_output_collection(self, db, coll_name, sharded):
+		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
+		cs_coll = db.get_collection(coll_name)
+		cs_coll.drop()
+		if USE_PREIMAGES:
+			self.log.info('Using preimages')
+			cs_coll = self.db.create_collection(coll_name, changeStreamPreAndPostImages = { 'enabled' : True } )
+		else:
+			cs_coll = self.db.create_collection(coll_name)
+			cs_coll.create_index('type')
+
+		if sharded:
+			cs_coll.create_index('account')
+			db.client.admin.command('enableSharding', db.name)
+			full_name = f'{db.name}.{cs_coll.name}'
+			db.client.admin.command('shardCollection', full_name, key={'account' : 1})
+
+		return cs_coll
+
 	# Test entry point
 	def execute(self):
 		self.db = self.get_db_connection(dbname=self.db_name)
 		collection = self.db[self.input_data_coll_name]
-		
-		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
-		cs_coll = self.db.get_collection(self.cs_coll_name)
-		cs_coll.drop()
-		if USE_PREIMAGES:
-			self.log.info('Using preimages')
-			cs_coll = self.db.create_collection(self.cs_coll_name, changeStreamPreAndPostImages = { 'enabled' : True } )
-		else:
-			cs_coll = self.db.create_collection(self.cs_coll_name)
-			cs_coll.create_index('type')
+
+		sharded = self.project.SHARD_OUTPUT_COLLECTION == 'Y'
+		cs_coll = self.create_output_collection(self.db, self.cs_coll_name, sharded )
 
 		DOCS_TO_INSERT = 100000
 		BATCH_SIZE = int(self.project.INSERT_BATCH_SIZE)
