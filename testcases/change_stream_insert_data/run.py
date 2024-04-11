@@ -22,6 +22,7 @@ class PySysTest(ChangeStreamBaseTest):
 			cs_coll.create_index('type')
 
 		if sharded:
+			self.log.info(f'Sharding {cs_coll.name}')
 			cs_coll.create_index('account')
 			db.client.admin.command('enableSharding', db.name)
 			full_name = f'{db.name}.{cs_coll.name}'
