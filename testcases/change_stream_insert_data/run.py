@@ -38,7 +38,7 @@ class PySysTest(ChangeStreamBaseTest):
 		sharded = self.project.SHARD_OUTPUT_COLLECTION == 'Y'
 		cs_coll = self.create_output_collection(self.db, self.cs_coll_name, sharded )
 
-		DOCS_TO_INSERT = 100000
+		DOCS_TO_INSERT = int(self.project.DOCS_TO_INSERT)
 		BATCH_SIZE = int(self.project.INSERT_BATCH_SIZE)
 		PRE_UPDATE_INSERT_COUNT = int(self.project.PRE_UPDATE_INSERT_COUNT)
 		PERCENT_UPDATES = int(self.project.PERCENT_UPDATES)
