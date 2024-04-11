@@ -8,6 +8,7 @@ class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
 		ChangeStreamBaseTest.__init__(self, descriptor, outsubdir, runner)
 		self.cs_coll_name = 'cs_input'
+		self.batch_index = 0
 
 	def create_output_collection(self, db, coll_name, sharded):
 		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
@@ -43,7 +44,7 @@ class PySysTest(ChangeStreamBaseTest):
 		WAIT_TIME = 1.0
 		doc_inserted = 0
 		docs_processed = 0
-		current_input_id = 0
+		current_input_id = -1
 
 		current_batch = []
 		batch_count = {}
@@ -64,10 +65,13 @@ class PySysTest(ChangeStreamBaseTest):
 				# self.log.info('Batch Start')
 				batch_details['type'] = 'batch_start'
 				batch_details['ts'] = time.perf_counter()
+				self.batch_index += 1
+				batch_details['batch_index'] = self.batch_index
 			elif len(current_batch) == BATCH_SIZE - 1:
 				# self.log.info('Batch End')
 				batch_details['type'] = 'batch_end'
 				batch_details['test_id'] = test_info['test_id']
+				batch_details['batch_index'] = self.batch_index
 
 			is_insert = True 
 			if doc_inserted > PRE_UPDATE_INSERT_COUNT:
@@ -76,8 +80,8 @@ class PySysTest(ChangeStreamBaseTest):
 
 			if is_insert:
 				# Get next input doc
-				doc = collection.find_one({'_id' : current_input_id})
 				current_input_id += 1
+				doc = collection.find_one({'_id' : current_input_id})
 				if len(batch_details) > 0:
 					doc['type'] = batch_details['type']
 					doc['batch'] = batch_details
@@ -88,15 +92,15 @@ class PySysTest(ChangeStreamBaseTest):
 			else:
 				id_to_update = random.randint(0, current_input_id)
 				filter = { '_id' : id_to_update}
-				updates = { 'updated' : True}
+				updates = {}
 				if len(batch_details) > 0:
 					updates['type'] = batch_details['type']
 					updates['batch'] = batch_details
-					self.log.info(f'Updating {id_to_update} = {updates}')
+					# self.log.info(f'Updating {id_to_update} = {updates}')
 					current_batch.append(UpdateOne(filter, { '$set' : updates, '$inc' : { 'version' : 1}}))
 				else:
 					updates['type'] = 'doc'
-					self.log.info(f'Updating {id_to_update} = {updates}, unsetting batch')
+					# self.log.info(f'Updating {id_to_update} = {updates}, unsetting batch')
 					current_batch.append(UpdateOne(filter, 
 									{ '$set' : updates, 
 									  '$inc' : { 'version' : 1}, 

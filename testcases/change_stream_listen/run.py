@@ -21,6 +21,8 @@ class PySysTest(ChangeStreamBaseTest):
 		self.test_marker = None
 		self.test_results = []
 
+		self.updated_ids = {}
+
 	# Cleanup
 	def stop_cs_thread(self):
 		if self.db is not None:
@@ -66,24 +68,56 @@ class PySysTest(ChangeStreamBaseTest):
 		self.assertThat('self.cnt == self.inserted_count')
 
 	def on_change_received(self, log, change_event):
-		doc = change_event['fullDocument']
+		full_doc = change_event['fullDocument']
 		op_type = change_event['operationType']
+		if op_type == 'insert':
+			self.handle_insert(log, op_type, full_doc)
+		elif op_type == 'update':
+			self.handle_update(log, op_type, full_doc, change_event['updateDescription']['updatedFields'])
+		else:
+			log.warn(f'Unknown op_type = {op_type}')
+
+	def handle_insert(self, log, op_type, full_doc):
 		# self.log.info(change_event)
-		if doc['type'] == 'test_marker':
-			if doc['is_test_start']:
-				self.test_marker = doc
-				self.log.info(f"Starting test {doc['test_info']['test_id']}")			
+		if full_doc['type'] == 'test_marker':
+			if full_doc['is_test_start']:
+				self.test_marker = full_doc
+				self.log.info(f"Starting test {full_doc['test_info']['test_id']}")			
 			else:
-				self.log.info(f"Finished test {doc['test_info']['test_id']}")	
+				self.log.info(f"Finished test {full_doc['test_info']['test_id']}")	
 				self.insert_test_run(self.test_marker['test_info'], self.test_results)
 				self.test_marker = None
 				self.test_results = []		
-		elif doc['type'] == 'batch_start':
+		else:
+			# log.info(f'INSERT: {full_doc}')
+			self.update_op_type_count(log, op_type)
+			if 'batch' in full_doc:
+				self.handle_batch(log, op_type, full_doc)
+
+	def update_op_type_count(self, log, op_type):
+		if op_type in self.batch_received_count.keys():
 			self.batch_received_count[op_type] += 1
-			self.batch_start = doc['batch']
+			# log.info(f'{op_type} - {self.batch_received_count[op_type]}')
+
+	def handle_update(self, log, op_type, full_doc, updated_fields):
+		self.update_op_type_count(log, op_type)
+
+		# log.info(f'UPDATE: {full_doc}, {updated_fields}')
+		# id = full_doc['_id']
+		# if id in self.updated_ids:
+		# 	log.info(f'{id}: PREV_UPDATE - {self.updated_ids[id]}, THIS_UPDATE - {updated_fields}')
+		# self.updated_ids[id] = updated_fields
+
+		# See if the update includes the batch marker
+		if 'batch' in updated_fields:
+			self.handle_batch(log, op_type, full_doc)
+
+	def handle_batch(self, log, op_type, full_doc):
+		if full_doc['type'] == 'batch_start':
+			self.batch_start = full_doc['batch']
+			self.updated_ids = {}
 			self.ts_first_received = time.perf_counter()
-		elif doc['type'] == 'batch_end':
-			self.batch_received_count[op_type] += 1
+		elif full_doc['type'] == 'batch_end':
 			ts_last_received = time.perf_counter()
 			ts_inserted = self.batch_start['ts']
 			
@@ -104,13 +138,9 @@ class PySysTest(ChangeStreamBaseTest):
 				batch_total += self.batch_received_count[type]
 				batch_desc.append(f'{self.batch_received_count[type]} {type}')
 				self.batch_received_count[type] = 0
-			if batch_total != 100:
-				self.log.warn(doc)
+			if batch_total != int(self.project.INSERT_BATCH_SIZE):
+				self.log.warn(full_doc)
 			log.info(f"Batch of {batch_total} {', '.join(batch_desc)} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
 			self.test_results.append(results)
-		else:
-			if op_type in self.batch_received_count.keys():
-				self.batch_received_count[op_type] += 1
 
-		# self.log.info(f'{change_event["operationType"]} - {self.batch_received_count}')
 

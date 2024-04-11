@@ -21,12 +21,14 @@ class PySysTest(ChangeStreamBaseTest):
 		collection = db[self.input_data_coll_name]
 		collection.drop()
 
+		small_docs = self.project.SMALL_TEST_DOCS == 'Y'
+
 		BUCKET_COUNT = 1000
 		inserted_count = 0
 		doc_index = 0
 		current_bucket = []
 		while inserted_count < docs_to_generate:
-			doc = self.create_doc(doc_index)
+			doc = self.create_doc(doc_index, small_docs)
 			current_bucket, inserted_count = self.store_doc(collection, doc, current_bucket, inserted_count, BUCKET_COUNT)
 			doc_index += 1
 
@@ -47,16 +49,18 @@ class PySysTest(ChangeStreamBaseTest):
 			return (current_bucket, inserted_count)
 
 
-	def create_doc(self, inserted_count):
+	def create_doc(self, inserted_count, small_docs):
 		doc = {}
 		doc['_id'] = inserted_count
 		doc['type'] = 'doc'
-		FLOAT_FIELD_COUNT = 65
-		for index in range(FLOAT_FIELD_COUNT):
-			doc[f'int_field_{index}'] = float(index)
-		STRING_FIELD_COUNT = 22
-		for index in range(STRING_FIELD_COUNT):
-			doc[f'str_field_{index}'] = self.faker.word()
+
+		if not small_docs:
+			FLOAT_FIELD_COUNT = 130
+			for index in range(FLOAT_FIELD_COUNT):
+				doc[f'int_field_{index}'] = float(index)
+			STRING_FIELD_COUNT = 44
+			for index in range(STRING_FIELD_COUNT):
+				doc[f'str_field_{index}'] = self.faker.word()
 		return doc
 
 	def validate(self):
