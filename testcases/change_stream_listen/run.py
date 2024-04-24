@@ -45,19 +45,14 @@ class PySysTest(ChangeStreamBaseTest):
 		cs_coll = self.db[self.cs_coll_name]
 		cs_coll.drop()
 
-		full_document = 'updateLookup'
 		full_document_before_change = None
-		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
-		if USE_PREIMAGES:
-			self.log.info('Using preimages')
-			full_document = 'required'
-			full_document_before_change = 'required'
-
+		USE_FULL_DOCUMENT = self.project.FULL_DOCUMENT == 'Y'
+		full_document = 'updateLookup' if USE_FULL_DOCUMENT else None
+		
 		self.thread = self.create_change_stream_thread(self.db, 
 												 self.cs_coll_name, 
 												 self.on_change_received, 
-												 full_document=full_document,
-												 full_document_before_change=full_document_before_change)
+												 full_document=full_document)
 
 		# Just wait
 		done = False
@@ -72,12 +67,12 @@ class PySysTest(ChangeStreamBaseTest):
 		self.assertThat('self.cnt == self.inserted_count')
 
 	def on_change_received(self, log, change_event):
-		full_doc = change_event['fullDocument']
 		op_type = change_event['operationType']
 		if op_type == 'insert':
+			full_doc = change_event['fullDocument']
 			self.handle_insert(log, op_type, full_doc)
 		elif op_type == 'update':
-			self.handle_update(log, op_type, full_doc, change_event['updateDescription']['updatedFields'])
+			self.handle_update(log, op_type, change_event['updateDescription']['updatedFields'])
 		else:
 			log.warn(f'Unknown op_type = {op_type}')
 
@@ -118,7 +113,7 @@ class PySysTest(ChangeStreamBaseTest):
 			self.batch_received_count[op_type] += 1
 			self.current_batch_count += 1
 
-	def handle_update(self, log, op_type, full_doc, updated_fields):
+	def handle_update(self, log, op_type, updated_fields):
 		# log.info(f'UPDATE: {full_doc}, {updated_fields}')
 		self.update_op_type_count(log, op_type, updated_fields['updated_ts'])
 

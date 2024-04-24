@@ -11,15 +11,10 @@ class PySysTest(ChangeStreamBaseTest):
 		self.batch_index = 0
 
 	def create_output_collection(self, db, coll_name, sharded):
-		USE_PREIMAGES = self.project.USE_PREIMAGES == 'Y'
 		cs_coll = db.get_collection(coll_name)
 		cs_coll.drop()
-		if USE_PREIMAGES:
-			self.log.info('Using preimages')
-			cs_coll = self.db.create_collection(coll_name, changeStreamPreAndPostImages = { 'enabled' : True } )
-		else:
-			cs_coll = self.db.create_collection(coll_name)
-			cs_coll.create_index('type')
+		cs_coll = self.db.create_collection(coll_name)
+		cs_coll.create_index('type')
 
 		if sharded:
 			self.log.info(f'Sharding {cs_coll.name}')

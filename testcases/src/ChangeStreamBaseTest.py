@@ -74,24 +74,23 @@ class ChangeStreamBaseTest(BaseTest):
 		db = self.get_db_connection(dbname=self.db_name)
 		db.test_runs.insert_one(doc)
 
-	def create_change_stream_thread(self, db, coll_name, on_change_received, full_document = None, full_document_before_change=None):
+	def create_change_stream_thread(self, db, coll_name, on_change_received, full_document = None):
 		args = {}
 		args['db'] = db
 		args['coll_name'] = coll_name
 		args['full_document'] = full_document
-		args['fullDocumentBeforeChange'] = full_document_before_change
 		args['on_change_received'] = on_change_received
 		return self.startBackgroundThread('Change Stream consumer', self.change_stream_listener, kwargsForTarget=args)
 
-	def change_stream_listener(self, stopping, log, db, coll_name, full_document, fullDocumentBeforeChange, on_change_received):
+	def change_stream_listener(self, stopping, log, db, coll_name, full_document, on_change_received):
 		resume_token = None
 		running = not stopping.is_set()
 		while running:
 			try:
 				pipeline = [{'$match': {'operationType': { '$in' : ['insert', 'update', 'invalidate']}}}]
 				coll = db[coll_name]
-				log.info(f'Creating change stream for {coll_name}')
-				with coll.watch(pipeline, resume_after=resume_token, full_document=full_document, full_document_before_change=fullDocumentBeforeChange) as stream:
+				log.info(f'Creating change stream for {coll_name}, full_document = {full_document}')
+				with coll.watch(pipeline, resume_after=resume_token, full_document=full_document) as stream:
 					for change in stream:
 						opType = change['operationType']
 						if opType == 'invalidate':
