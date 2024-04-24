@@ -16,12 +16,16 @@ class PySysTest(ChangeStreamBaseTest):
 		self.batch_received_count = {}
 		for type in ['insert', 'update']:
 			self.batch_received_count[type] = 0
-		self.ts_first_received = None
 		self.db = None
 		self.test_marker = None
 		self.test_results = []
 
 		self.updated_ids = {}
+		self.test_batch_size = 0
+		self.current_batch_count = 0
+
+		self.ts_first_inserted = None
+		self.ts_first_received = None
 
 	# Cleanup
 	def stop_cs_thread(self):
@@ -77,12 +81,20 @@ class PySysTest(ChangeStreamBaseTest):
 		else:
 			log.warn(f'Unknown op_type = {op_type}')
 
+		if self.current_batch_count == self.test_batch_size:
+			self.handle_batch(log)
+			self.reset_batch()
+
+		# self.wait(0.5)
+
 	def handle_insert(self, log, op_type, full_doc):
 		# self.log.info(change_event)
 		if full_doc['type'] == 'test_marker':
 			if full_doc['is_test_start']:
 				self.test_marker = full_doc
-				self.log.info(f"Starting test {full_doc['test_info']['test_id']}")			
+				self.test_batch_size = self.test_marker['test_info']['batch_size']
+				self.log.info(f"Starting test {full_doc['test_info']['test_id']}, batch size {self.test_batch_size}")			
+				self.reset_batch()
 			else:
 				self.log.info(f"Finished test {full_doc['test_info']['test_id']}")	
 				self.insert_test_run(self.test_marker['test_info'], self.test_results)
@@ -90,57 +102,50 @@ class PySysTest(ChangeStreamBaseTest):
 				self.test_results = []		
 		else:
 			# log.info(f'INSERT: {full_doc}')
-			self.update_op_type_count(log, op_type)
-			if 'batch' in full_doc:
-				self.handle_batch(log, op_type, full_doc)
+			self.update_op_type_count(log, op_type, full_doc['updated_ts'])
 
-	def update_op_type_count(self, log, op_type):
+	def reset_batch(self):
+		self.ts_first_received = None
+		self.ts_first_inserted = None
+		self.current_batch_count = 0
+
+	def update_op_type_count(self, log, op_type, ts):
+		if self.ts_first_received == None:
+			self.ts_first_received = time.perf_counter()
+			self.ts_first_inserted = ts
+		
 		if op_type in self.batch_received_count.keys():
 			self.batch_received_count[op_type] += 1
-			# log.info(f'{op_type} - {self.batch_received_count[op_type]}')
+			self.current_batch_count += 1
 
 	def handle_update(self, log, op_type, full_doc, updated_fields):
-		self.update_op_type_count(log, op_type)
-
 		# log.info(f'UPDATE: {full_doc}, {updated_fields}')
-		# id = full_doc['_id']
-		# if id in self.updated_ids:
-		# 	log.info(f'{id}: PREV_UPDATE - {self.updated_ids[id]}, THIS_UPDATE - {updated_fields}')
-		# self.updated_ids[id] = updated_fields
+		self.update_op_type_count(log, op_type, updated_fields['updated_ts'])
 
-		# See if the update includes the batch marker
-		if 'batch' in updated_fields:
-			self.handle_batch(log, op_type, full_doc)
-
-	def handle_batch(self, log, op_type, full_doc):
-		if full_doc['type'] == 'batch_start':
-			self.batch_start = full_doc['batch']
-			self.updated_ids = {}
-			self.ts_first_received = time.perf_counter()
-		elif full_doc['type'] == 'batch_end':
-			ts_last_received = time.perf_counter()
-			ts_inserted = self.batch_start['ts']
-			
-			# Metrics
-			first_delta = self.ts_first_received - ts_inserted
-			last_delta = ts_last_received - ts_inserted
-			batch_time = ts_last_received - self.ts_first_received
-			results = {}
-			results['ts_first_received'] = self.ts_first_received
-			results['batch_received_count'] = copy.deepcopy(self.batch_received_count)
-			results['first_delta'] = first_delta
-			results['last_delta'] = last_delta
-			results['batch_time'] = batch_time
-			
-			batch_total = 0
-			batch_desc = []
-			for type in self.batch_received_count.keys():						
-				batch_total += self.batch_received_count[type]
-				batch_desc.append(f'{self.batch_received_count[type]} {type}')
-				self.batch_received_count[type] = 0
-			if batch_total != int(self.project.INSERT_BATCH_SIZE):
-				self.log.warn(full_doc)
-			log.info(f"Batch of {batch_total} {', '.join(batch_desc)} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
-			self.test_results.append(results)
+	def handle_batch(self, log):
+		ts_last_received = time.perf_counter()
+		ts_inserted = self.ts_first_inserted
+		
+		# Metrics
+		first_delta = self.ts_first_received - ts_inserted
+		last_delta = ts_last_received - ts_inserted
+		batch_time = ts_last_received - self.ts_first_received
+		results = {}
+		results['ts_first_received'] = self.ts_first_received
+		results['batch_received_count'] = copy.deepcopy(self.batch_received_count)
+		results['first_delta'] = first_delta
+		results['last_delta'] = last_delta
+		results['batch_time'] = batch_time
+		
+		batch_total = 0
+		batch_desc = []
+		for type in self.batch_received_count.keys():						
+			batch_total += self.batch_received_count[type]
+			batch_desc.append(f'{self.batch_received_count[type]} {type}')
+			self.batch_received_count[type] = 0
+		if batch_total != int(self.project.INSERT_BATCH_SIZE):
+			self.log.warn('Eek')
+		log.info(f"Batch of {batch_total} {', '.join(batch_desc)} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
+		self.test_results.append(results)
 
 

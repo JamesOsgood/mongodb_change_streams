@@ -22,7 +22,7 @@ class ChangeStreamBaseTest(BaseTest):
 
 		return db_connection
 
-	def create_test_info(self):
+	def create_test_info(self, batch_size):
 		db = self.get_db_connection()
 		# Mongo Info
 		status = db.command('serverStatus')
@@ -39,12 +39,19 @@ class ChangeStreamBaseTest(BaseTest):
 		system = host_info['system']
 		host = {}
 		host['name'] = system['hostname']
-		host['cores'] = system['numCores']
+
+		cores = 0
+		if 'numCores' in system:
+			cores = system['numCores']
+		elif 'numLogicalCores' in system:
+			cores = system['numLogicalCores']
+		host['cores'] = cores
 		host['memSizeMB'] = system['memSizeMB']
 		host['memSizeGB'] = host['memSizeMB'] / 1000
 		
 		test_info = {}
 		test_info['test_id'] = datetime.now().isoformat()
+		test_info['batch_size'] = batch_size
 		test_info['mongo'] = mongo
 		test_info['host'] = host
 		return test_info

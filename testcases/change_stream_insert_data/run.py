@@ -53,7 +53,7 @@ class PySysTest(ChangeStreamBaseTest):
 			batch_count[type] = 0
 
 		# Test info
-		test_info = self.create_test_info()
+		test_info = self.create_test_info(BATCH_SIZE)
 		test_marker = self.create_test_run_marker(test_info, True)
 		cs_coll.insert_one(test_marker)
 
@@ -61,31 +61,17 @@ class PySysTest(ChangeStreamBaseTest):
 
 		while docs_processed < DOCS_TO_INSERT and current_input_id < input_count:
 
-			batch_details = {}
-			if len(current_batch) == 0:
-				# self.log.info('Batch Start')
-				batch_details['type'] = 'batch_start'
-				batch_details['ts'] = time.perf_counter()
-				self.batch_index += 1
-				batch_details['batch_index'] = self.batch_index
-			elif len(current_batch) == BATCH_SIZE - 1:
-				# self.log.info('Batch End')
-				batch_details['type'] = 'batch_end'
-				batch_details['test_id'] = test_info['test_id']
-				batch_details['batch_index'] = self.batch_index
-
 			is_insert = True 
 			if doc_inserted > PRE_UPDATE_INSERT_COUNT:
 				if random.random() < PERCENT_UPDATES / 100:
 					is_insert = False
 
+			ts_now = time.perf_counter()
 			if is_insert:
 				# Get next input doc
 				current_input_id += 1
 				doc = collection.find_one({'_id' : current_input_id})
-				if len(batch_details) > 0:
-					doc['type'] = batch_details['type']
-					doc['batch'] = batch_details
+				doc['updated_ts'] = ts_now
 				current_batch.append(InsertOne(doc))
 				doc_inserted += 1
 				# self.log.info(f'Inserting {current_input_id} - {doc}')
@@ -94,27 +80,15 @@ class PySysTest(ChangeStreamBaseTest):
 				id_to_update = random.randint(0, current_input_id)
 				filter = { '_id' : id_to_update}
 				updates = {}
-				if len(batch_details) > 0:
-					updates['type'] = batch_details['type']
-					updates['batch'] = batch_details
-					# self.log.info(f'Updating {id_to_update} = {updates}')
-					current_batch.append(UpdateOne(filter, { '$set' : updates, '$inc' : { 'version' : 1}}))
-				else:
-					updates['type'] = 'doc'
-					# self.log.info(f'Updating {id_to_update} = {updates}, unsetting batch')
-					current_batch.append(UpdateOne(filter, 
-									{ '$set' : updates, 
-									  '$inc' : { 'version' : 1}, 
-									  '$unset' : { 'batch' : ''  }}))
+				updates['type'] = 'doc'
+				updates['updated_ts'] = ts_now
+				current_batch.append(UpdateOne(filter, 
+								{ '$set' : updates, 
+									'$inc' : { 'version' : 1}, 
+								}))
 				batch_count['update'] += 1
 			
 			if len(current_batch) == BATCH_SIZE:
-				# if doc_inserted > PRE_UPDATE_INSERT_COUNT:
-				# 	for doc in current_batch:
-				# 		self.log.info(doc)
-				# 		cs_coll.bulk_write([doc])
-				# 		self.wait(1.0)
-				# else:
 				cs_coll.bulk_write(current_batch)
 				docs_processed += len(current_batch)
 				self.log.info(f'Processed {docs_processed}')
