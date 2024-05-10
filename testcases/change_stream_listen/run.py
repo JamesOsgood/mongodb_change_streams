@@ -46,16 +46,18 @@ class PySysTest(ChangeStreamBaseTest):
 	# Test entry point
 	def execute(self):
 		self.db = self.get_db_connection(dbname=self.db_name)
-		collection = self.db[self.input_data_coll_name]
+		input_collection = self.db[self.input_data_coll_name]
 		cs_coll = self.db[self.cs_coll_name]
-		cs_coll.drop()
+		if self.project.RUN_AGAINST_INPUT_COLLECTION == 'Y':
+			cs_coll = input_collection
+		else:
+			cs_coll.drop()
 
-		full_document_before_change = None
 		USE_FULL_DOCUMENT = self.project.FULL_DOCUMENT == 'Y'
 		full_document = 'updateLookup' if USE_FULL_DOCUMENT else None
 		
 		self.thread = self.create_change_stream_thread(self.db, 
-												 self.cs_coll_name, 
+												 cs_coll.name,
 												 self.on_change_received, 
 												 full_document=full_document)
 

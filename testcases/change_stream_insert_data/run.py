@@ -43,6 +43,7 @@ class PySysTest(ChangeStreamBaseTest):
 		params['pre_update_insert_count'] = PRE_UPDATE_INSERT_COUNT
 		params['percent_updates'] = PERCENT_UPDATES
 		params['use_full_document'] = USE_FULL_DOCUMENT
+		params['run_against_input_collection'] = self.project.RUN_AGAINST_INPUT_COLLECTION
 
 		WAIT_TIME = 1.0
 		doc_inserted = 0

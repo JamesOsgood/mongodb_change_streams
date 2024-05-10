@@ -22,6 +22,7 @@ class PySysTest(ChangeStreamBaseTest):
 	def generate_documents(self, db, docs_to_generate, accounts):
 		collection = db[self.input_data_coll_name]
 		collection.drop()
+		collection.create_index('type')
 
 		small_docs = self.project.SMALL_TEST_DOCS == 'Y'
 
