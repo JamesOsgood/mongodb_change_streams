@@ -71,6 +71,7 @@ class ChangeStreamBaseTest(BaseTest):
 	def insert_test_run(self, test_info, test_results):
 		doc = {}
 		doc['test_info'] = test_info
+		doc['test_info']['test_duration'] = (test_info['ts_test_end'] - test_info['ts_test_start']).total_seconds()
 		doc['results'] = test_results
 		doc['keep'] = False
 		doc['latest'] = True

@@ -94,11 +94,13 @@ class PySysTest(ChangeStreamBaseTest):
 		if full_doc['type'] == 'test_marker':
 			if full_doc['is_test_start']:
 				self.test_marker = full_doc
+				self.test_marker['test_info']['ts_test_start'] = datetime.now()
 				self.test_batch_size = self.test_marker['test_info']['params']['batch_size']
 				self.log.info(f"Starting test {full_doc['test_info']['test_id']}, batch size {self.test_batch_size}")			
 				self.next_batch()
 			else:
 				self.log.info(f"Finished test {full_doc['test_info']['test_id']}")	
+				self.test_marker['test_info']['ts_test_end'] = datetime.now()
 				self.insert_test_run(self.test_marker['test_info'], self.test_results)
 				self.test_marker = None
 				self.ts_prev_first_inserted = None
