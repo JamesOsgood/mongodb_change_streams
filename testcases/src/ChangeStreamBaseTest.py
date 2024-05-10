@@ -61,6 +61,7 @@ class ChangeStreamBaseTest(BaseTest):
 		doc['type'] = 'test_marker'
 		doc['test_info'] = test_info
 		doc['is_test_start'] = is_start
+		doc['ts'] = datetime.now()
 		return doc
 	
 	def clear_test_runs(self):

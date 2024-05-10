@@ -1,6 +1,5 @@
 from ChangeStreamBaseTest import ChangeStreamBaseTest
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from bson.decimal128 import Decimal128
 import copy
 
@@ -24,7 +23,9 @@ class PySysTest(ChangeStreamBaseTest):
 		self.test_batch_size = 0
 		self.current_batch_count = 0
 
+		self.ts_last_first_inserted = None
 		self.ts_first_inserted = None
+		self.ts_last_first_received = None
 		self.ts_first_received = None
 
 	# Cleanup
@@ -94,19 +95,22 @@ class PySysTest(ChangeStreamBaseTest):
 				self.log.info(f"Finished test {full_doc['test_info']['test_id']}")	
 				self.insert_test_run(self.test_marker['test_info'], self.test_results)
 				self.test_marker = None
+				self.ts_last_first_inserted = None
 				self.test_results = []		
 		else:
 			# log.info(f'INSERT: {full_doc}')
-			self.update_op_type_count(log, op_type, full_doc['updated_ts'])
+			self.update_op_type_count(log, op_type, full_doc['updated_ts']['ts'])
 
 	def reset_batch(self):
+		self.ts_last_first_inserted = self.ts_first_inserted
+		self.ts_last_first_received = self.ts_first_received
 		self.ts_first_received = None
 		self.ts_first_inserted = None
 		self.current_batch_count = 0
 
 	def update_op_type_count(self, log, op_type, ts):
 		if self.ts_first_received == None:
-			self.ts_first_received = time.perf_counter()
+			self.ts_first_received = datetime.now()
 			self.ts_first_inserted = ts
 		
 		if op_type in self.batch_received_count.keys():
@@ -115,22 +119,31 @@ class PySysTest(ChangeStreamBaseTest):
 
 	def handle_update(self, log, op_type, updated_fields):
 		# log.info(f'UPDATE: {full_doc}, {updated_fields}')
-		self.update_op_type_count(log, op_type, updated_fields['updated_ts'])
+		self.update_op_type_count(log, op_type, updated_fields['updated_ts']['ts'])
 
 	def handle_batch(self, log):
-		ts_last_received = time.perf_counter()
+		ts_last_received = datetime.now()
 		ts_inserted = self.ts_first_inserted
 		
 		# Metrics
-		first_delta = self.ts_first_received - ts_inserted
-		last_delta = ts_last_received - ts_inserted
-		batch_time = ts_last_received - self.ts_first_received
+		first_delta = (self.ts_first_received - ts_inserted).total_seconds()
+		last_delta = (ts_last_received - ts_inserted).total_seconds()
+		batch_time = (ts_last_received - self.ts_first_received).total_seconds()
+			
 		results = {}
+		results['ts_first_inserted'] = self.ts_first_inserted
+		results['ts_last_first_inserted'] = self.ts_last_first_inserted
+		if self.ts_last_first_inserted is not None:
+			results['time_between_batches_inserted'] = (self.ts_first_inserted - self.ts_last_first_inserted).total_seconds()
 		results['ts_first_received'] = self.ts_first_received
+		if self.ts_last_first_received is not None:
+			results['time_between_batches_received'] = (self.ts_first_received - self.ts_last_first_received).total_seconds()
+
 		results['batch_received_count'] = copy.deepcopy(self.batch_received_count)
 		results['first_delta'] = first_delta
 		results['last_delta'] = last_delta
 		results['batch_time'] = batch_time
+		results['batch_index'] = len(self.test_results)
 		
 		batch_total = 0
 		batch_desc = []

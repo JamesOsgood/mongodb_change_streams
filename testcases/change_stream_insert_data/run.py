@@ -1,8 +1,6 @@
 from ChangeStreamBaseTest import ChangeStreamBaseTest
-import time
 import random
-import copy
-
+from datetime import datetime
 from pymongo import InsertOne, UpdateOne
 class PySysTest(ChangeStreamBaseTest):
 	def __init__ (self, descriptor, outsubdir, runner):
@@ -41,6 +39,7 @@ class PySysTest(ChangeStreamBaseTest):
 		doc_inserted = 0
 		docs_processed = 0
 		current_input_id = -1
+		ts_counter = 0
 
 		current_batch = []
 		batch_count = {}
@@ -61,7 +60,7 @@ class PySysTest(ChangeStreamBaseTest):
 				if random.random() < PERCENT_UPDATES / 100:
 					is_insert = False
 
-			ts_now = time.perf_counter()
+			ts_now, ts_counter = self.create_ts(datetime.now(), ts_counter)
 			if is_insert:
 				# Get next input doc
 				current_input_id += 1
@@ -99,6 +98,10 @@ class PySysTest(ChangeStreamBaseTest):
 
 		test_marker = self.create_test_run_marker(test_info, False)
 		cs_coll.insert_one(test_marker)
+
+	def create_ts(self, ts_now, ts_counter):
+		ts = { 'ts' : ts_now, 'ts_counter' : ts_counter }
+		return (ts, ts_counter+1)
 
 	def get_doc_count(self, coll):
 		pipeline = [
