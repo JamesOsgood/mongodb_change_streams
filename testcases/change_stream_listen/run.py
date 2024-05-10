@@ -23,10 +23,14 @@ class PySysTest(ChangeStreamBaseTest):
 		self.test_batch_size = 0
 		self.current_batch_count = 0
 
-		self.ts_last_first_inserted = None
 		self.ts_first_inserted = None
-		self.ts_last_first_received = None
+		self.ts_prev_first_inserted = None
+
 		self.ts_first_received = None
+		self.ts_prev_first_received = None
+
+		self.ts_last_received = None
+		self.ts_prev_last_received = None
 
 	# Cleanup
 	def stop_cs_thread(self):
@@ -79,7 +83,7 @@ class PySysTest(ChangeStreamBaseTest):
 
 		if self.current_batch_count == self.test_batch_size:
 			self.handle_batch(log)
-			self.reset_batch()
+			self.next_batch()
 
 		# self.wait(0.5)
 
@@ -88,62 +92,74 @@ class PySysTest(ChangeStreamBaseTest):
 		if full_doc['type'] == 'test_marker':
 			if full_doc['is_test_start']:
 				self.test_marker = full_doc
-				self.test_batch_size = self.test_marker['test_info']['batch_size']
+				self.test_batch_size = self.test_marker['test_info']['params']['batch_size']
 				self.log.info(f"Starting test {full_doc['test_info']['test_id']}, batch size {self.test_batch_size}")			
-				self.reset_batch()
+				self.next_batch()
 			else:
 				self.log.info(f"Finished test {full_doc['test_info']['test_id']}")	
 				self.insert_test_run(self.test_marker['test_info'], self.test_results)
 				self.test_marker = None
-				self.ts_last_first_inserted = None
+				self.ts_prev_first_inserted = None
+				self.ts_prev_last_inserted = None
 				self.test_results = []		
 		else:
 			# log.info(f'INSERT: {full_doc}')
 			self.update_op_type_count(log, op_type, full_doc['updated_ts']['ts'])
 
-	def reset_batch(self):
-		self.ts_last_first_inserted = self.ts_first_inserted
-		self.ts_last_first_received = self.ts_first_received
+	def next_batch(self):
+		self.ts_prev_first_inserted = self.ts_first_inserted
+		self.ts_prev_first_received = self.ts_first_received
+
 		self.ts_first_received = None
 		self.ts_first_inserted = None
+		self.ts_last_received = None
 		self.current_batch_count = 0
 
-	def update_op_type_count(self, log, op_type, ts):
+	def update_op_type_count(self, log, op_type, ts_inserted):
+		self.ts_last_inserted = ts_inserted
+		self.ts_last_received = datetime.now()
+
+		if self.ts_first_inserted == None:
+			self.ts_first_inserted = self.ts_last_inserted
+
 		if self.ts_first_received == None:
-			self.ts_first_received = datetime.now()
-			self.ts_first_inserted = ts
-		
+			self.ts_first_received = self.ts_last_received
+
 		if op_type in self.batch_received_count.keys():
 			self.batch_received_count[op_type] += 1
 			self.current_batch_count += 1
+
 
 	def handle_update(self, log, op_type, updated_fields):
 		# log.info(f'UPDATE: {full_doc}, {updated_fields}')
 		self.update_op_type_count(log, op_type, updated_fields['updated_ts']['ts'])
 
 	def handle_batch(self, log):
-		ts_last_received = datetime.now()
-		ts_inserted = self.ts_first_inserted
 		
 		# Metrics
-		first_delta = (self.ts_first_received - ts_inserted).total_seconds()
-		last_delta = (ts_last_received - ts_inserted).total_seconds()
-		batch_time = (ts_last_received - self.ts_first_received).total_seconds()
-			
 		results = {}
-		results['ts_first_inserted'] = self.ts_first_inserted
-		results['ts_last_first_inserted'] = self.ts_last_first_inserted
-		if self.ts_last_first_inserted is not None:
-			results['time_between_batches_inserted'] = (self.ts_first_inserted - self.ts_last_first_inserted).total_seconds()
-		results['ts_first_received'] = self.ts_first_received
-		if self.ts_last_first_received is not None:
-			results['time_between_batches_received'] = (self.ts_first_received - self.ts_last_first_received).total_seconds()
-
-		results['batch_received_count'] = copy.deepcopy(self.batch_received_count)
-		results['first_delta'] = first_delta
-		results['last_delta'] = last_delta
-		results['batch_time'] = batch_time
 		results['batch_index'] = len(self.test_results)
+		results['batch_contents'] = copy.deepcopy(self.batch_received_count)
+
+		insert = {}
+		insert['first'] = self.ts_first_inserted
+		insert['last'] = self.ts_last_inserted
+		if self.ts_prev_first_inserted is not None:
+			insert['prev_first'] = self.ts_prev_first_inserted
+			insert['batch_time'] = (self.ts_last_inserted - self.ts_first_inserted).total_seconds()
+			insert['time_between_batches'] = (self.ts_first_inserted - self.ts_prev_first_inserted).total_seconds()
+
+		results['insert'] = insert
+
+		recv = {}
+		recv['first'] = self.ts_first_received
+		recv['last'] = self.ts_last_received
+		if self.ts_prev_first_inserted is not None:
+			recv['prev_first'] = self.ts_prev_first_received
+			recv['batch_time'] = (self.ts_last_received - self.ts_first_received).total_seconds()
+			recv['time_between_batches'] = (self.ts_first_received - self.ts_prev_first_received).total_seconds()
+
+		results['receive'] = recv
 		
 		batch_total = 0
 		batch_desc = []
@@ -153,7 +169,8 @@ class PySysTest(ChangeStreamBaseTest):
 			self.batch_received_count[type] = 0
 		if batch_total != int(self.project.INSERT_BATCH_SIZE):
 			self.log.warn('Eek')
-		log.info(f"Batch of {batch_total} {', '.join(batch_desc)} - Deltas - first {first_delta:4f}, last {last_delta:4f}, batch time {batch_time:4f}")
+		log.info(f"Batch {results['batch_index']} received : {batch_total} {', '.join(batch_desc)}")
+
 		self.test_results.append(results)
 
 

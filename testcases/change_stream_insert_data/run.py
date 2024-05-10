@@ -35,6 +35,15 @@ class PySysTest(ChangeStreamBaseTest):
 		BATCH_SIZE = int(self.project.INSERT_BATCH_SIZE)
 		PRE_UPDATE_INSERT_COUNT = int(self.project.PRE_UPDATE_INSERT_COUNT)
 		PERCENT_UPDATES = int(self.project.PERCENT_UPDATES)
+		USE_FULL_DOCUMENT = self.project.FULL_DOCUMENT == 'Y'
+
+		params = {}
+		params['docs_to_insert'] = DOCS_TO_INSERT
+		params['batch_size'] = BATCH_SIZE
+		params['pre_update_insert_count'] = PRE_UPDATE_INSERT_COUNT
+		params['percent_updates'] = PERCENT_UPDATES
+		params['use_full_document'] = USE_FULL_DOCUMENT
+
 		WAIT_TIME = 1.0
 		doc_inserted = 0
 		docs_processed = 0
@@ -47,7 +56,7 @@ class PySysTest(ChangeStreamBaseTest):
 			batch_count[type] = 0
 
 		# Test info
-		test_info = self.create_test_info(BATCH_SIZE)
+		test_info = self.create_test_info(params)
 		test_marker = self.create_test_run_marker(test_info, True)
 		cs_coll.insert_one(test_marker)
 

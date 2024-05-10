@@ -22,7 +22,7 @@ class ChangeStreamBaseTest(BaseTest):
 
 		return db_connection
 
-	def create_test_info(self, batch_size):
+	def create_test_info(self, params):
 		db = self.get_db_connection()
 		# Mongo Info
 		status = db.command('serverStatus')
@@ -51,7 +51,7 @@ class ChangeStreamBaseTest(BaseTest):
 		
 		test_info = {}
 		test_info['test_id'] = datetime.now().isoformat()
-		test_info['batch_size'] = batch_size
+		test_info['params'] = params
 		test_info['mongo'] = mongo
 		test_info['host'] = host
 		return test_info
@@ -72,8 +72,11 @@ class ChangeStreamBaseTest(BaseTest):
 		doc = {}
 		doc['test_info'] = test_info
 		doc['results'] = test_results
+		doc['keep'] = False
+		doc['latest'] = True
 		db = self.get_db_connection(dbname=self.db_name)
-		db.test_runs.insert_one(doc)
+		id = db.test_runs.insert_one(doc).inserted_id
+		db.test_runs.update_many({'_id' : { '$ne' : id}}, { '$set' : { 'latest' : False}})
 
 	def create_change_stream_thread(self, db, coll_name, on_change_received, full_document = None):
 		args = {}
