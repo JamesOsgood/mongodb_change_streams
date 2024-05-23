@@ -53,6 +53,8 @@ class PySysTest(ChangeStreamBaseTest):
 		else:
 			cs_coll.drop()
 
+		self.log.info(f'Running against {cs_coll.name}')
+
 		USE_FULL_DOCUMENT = self.project.FULL_DOCUMENT == 'Y'
 		full_document = 'updateLookup' if USE_FULL_DOCUMENT else None
 		
